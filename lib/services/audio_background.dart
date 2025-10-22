@@ -253,6 +253,9 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
     if (index < 0 || index >= queue.value.length) return;
     await _player.seek(Duration.zero, index: index);
     await play();
+    
+    // 更新当前媒体项
+    mediaItem.add(queue.value[index]);
   }
 
   @override

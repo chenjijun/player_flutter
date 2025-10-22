@@ -185,15 +185,13 @@ class PlaylistPage extends StatelessWidget {
                               )
                             : null,
                         onTap: () async {
-                          await svc.playSong(Song(
-                            id: item.id,
-                            title: item.title,
-                            artist: item.artist ?? '',
-                            album: item.album ?? '',
-                            duration: item.duration?.inSeconds ?? 0,
-                            url: item.id,
-                            coverUrl: item.artUri?.toString() ?? '',
-                          ));
+                          final svc = Provider.of<AudioHandlerService>(context, listen: false);
+                          if (svc.backgroundHandler != null) {
+                            final index = svc.backgroundHandler!.queue.value.indexOf(item);
+                            if (index != -1) {
+                              await svc.backgroundHandler!.skipToQueueItem(index);
+                            }
+                          }
                         },
                       ),
                     );

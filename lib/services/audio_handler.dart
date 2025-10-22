@@ -267,7 +267,7 @@ class AudioHandlerService with ChangeNotifier {
     });
     
     // 监听背景服务中的媒体项变化
-    backgroundHandler?.mediaItem.listen((mediaItem) {
+    backgroundHandler?.mediaItem.listen((mediaItem) async {
       if (mediaItem != null) {
         // 将MediaItem转换为Song对象并更新当前歌曲
         final song = Song(
@@ -280,6 +280,8 @@ class AudioHandlerService with ChangeNotifier {
           coverUrl: mediaItem.artUri?.toString() ?? '',
         );
         _current = song;
+        
+        // 重置播放器状态以确保UI正确更新
         notifyListeners();
       }
     });
