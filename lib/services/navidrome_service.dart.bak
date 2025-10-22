@@ -1,0 +1,318 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
+import '../models/navidrome_config.dart';
+import '../models/song.dart';
+
+class NavidromeService {
+  NavidromeConfig? _config;
+  String? _salt;
+  String? _token;
+
+  void logout() {
+    _config = null;
+    _salt = null;
+    _token = null;
+  }
+
+  Future<List<Song>> getRandomSongs(int size) async {
+    if (_config == null || _salt == null || _token == null) {
+      throw Exception('需要先登录');
+    }
+
+    try {
+      final url = Uri.parse(
+        '${_config!.serverUrl}/rest/getRandomSongs.view'
+        '?u=${Uri.encodeComponent(_config!.username)}'
+        '&t=$_token'
+        '&s=$_salt'
+        '&v=1.13.0'
+        '&c=myapp'
+        '&f=json'
+        '&size=$size'
+      );
+
+      final response = await http.get(url);
+      if (response.statusCode != 200) {
+        throw Exception('获取歌曲失败：HTTP ${response.statusCode}');
+      }
+
+      final jsonBody = json.decode(response.body);
+      final subsonic = jsonBody['subsonic-response'];
+      if (subsonic['status'] != 'ok') {
+        throw Exception('获取歌曲失败：${subsonic['error']?['message'] ?? '未知错误'}');
+      }
+
+      final List<dynamic> songList = subsonic['randomSongs']['song'];
+      return songList.map((json) => Song(
+        id: json['id'],
+        title: json['title'],
+        artist: json['artist'],
+        album: json['album'],
+        duration: json['duration'] ?? 0,
+        url: '${_config!.serverUrl}/rest/stream.view'
+             '?u=${Uri.encodeComponent(_config!.username)}'
+             '&t=$_token'
+             '&s=$_salt'
+             '&v=1.13.0'
+             '&c=myapp'
+             '&id=${json['id']}',
+        coverUrl: json['coverArt'] != null ? 
+             '${_config!.serverUrl}/rest/getCoverArt.view'
+             '?u=${Uri.encodeComponent(_config!.username)}'
+             '&t=$_token'
+             '&s=$_salt'
+             '&v=1.13.0'
+             '&c=myapp'
+             '&id=${json['coverArt']}' : null
+      )).toList();
+    } catch (e) {
+      throw Exception('获取歌曲失败：$e');
+    }
+  }
+  
+  void logout() {
+    _config = null;
+    _salt = null;
+    _token = null;
+  }
+  
+  Future<List<Song>> getRandomSongs(int size) async {
+    if (_config == null || _salt == null || _token == null) {
+      throw Exception('需要先登录');
+    }
+
+    try {
+      final url = Uri.parse(
+        '${_config!.serverUrl}/rest/getRandomSongs.view'
+        '?u=${Uri.encodeComponent(_config!.username)}'
+        '&t=$_token'
+        '&s=$_salt'
+        '&v=1.13.0'
+        '&c=myapp'
+        '&f=json'
+        '&size=$size'
+      );
+
+      final response = await http.get(url);
+      if (response.statusCode != 200) {
+        throw Exception('获取歌曲失败：HTTP ${response.statusCode}');
+      }
+
+      final jsonBody = json.decode(response.body);
+      final subsonic = jsonBody['subsonic-response'];
+      if (subsonic['status'] != 'ok') {
+        throw Exception('获取歌曲失败：${subsonic['error']?['message'] ?? '未知错误'}');
+      }
+
+      final List<dynamic> songList = subsonic['randomSongs']['song'];
+      return songList.map((json) => Song(
+        id: json['id'],
+        title: json['title'],
+        artist: json['artist'],
+        album: json['album'],
+        duration: json['duration'] ?? 0,
+        coverUrl: '${_config!.serverUrl}/rest/getCoverArt.view'
+                 '?u=${Uri.encodeComponent(_config!.username)}'
+                 '&t=$_token'
+                 '&s=$_salt'
+                 '&v=1.13.0'
+                 '&c=myapp'
+                 '&id=${json['coverArt'] ?? json['id']}'
+      )).toList();
+    } catch (e) {
+      throw Exception('获取歌曲失败：$e');
+    }
+  }
+
+  bool get isConfigured => _config != null;
+
+  String _generateSalt() {
+    final random = DateTime.now().millisecondsSinceEpoch.toString();
+    return random.substring(random.length - 6); // 使用时间戳后6位作为salt
+  }
+
+  Future<bool> login(NavidromeConfig config) async {
+    try {
+      // 生成 salt（客户端生成，而不是从服务器获取）
+      _salt = _generateSalt();
+      
+      // 生成 token = md5(password + salt)
+      final tokenInput = '${config.password}${_salt}';
+      _token = md5.convert(utf8.encode(tokenInput)).toString();
+
+      // 使用 ping 测试连接，使用正确的 Subsonic API 格式
+      final loginUrl = Uri.parse(
+        '${config.serverUrl}/rest/ping.view'
+        '?u=${Uri.encodeComponent(config.username)}'
+        '&t=${_token}'
+        '&s=${_salt}'
+        '&v=1.13.0'  // Subsonic API 1.13.0
+        '&c=myapp'
+        '&f=json'    // 请求 JSON 格式响应
+      );
+      
+      final loginResponse = await http.get(loginUrl);
+      if (loginResponse.statusCode != 200) {
+        debugPrint('Navidrome ping failed: ${loginResponse.statusCode} ${loginResponse.body}');
+        return false;
+      }
+
+      try {
+        final jsonBody = json.decode(loginResponse.body);
+        if (jsonBody['subsonic-response']?['status'] != 'ok') {
+          final error = jsonBody['subsonic-response']?['error'];
+          debugPrint('Navidrome ping error: ${error?['message'] ?? 'Unknown error'}');
+          return false;
+        }
+      } catch (e) {
+        debugPrint('Navidrome ping response parse error: $e');
+        return false;
+      }
+
+      _config = config;
+      return true;
+    } catch (e) {
+      debugPrint('Navidrome login exception: $e');
+      return false;
+    }
+  }
+
+  /// Test connection and return null when OK, or an error message when failed.
+  Future<String?> testConnection(NavidromeConfig config) async {
+    try {
+      final salt = _generateSalt();
+      final token = md5.convert(utf8.encode('${config.password}$salt')).toString();
+      
+      final pingUrl = Uri.parse(
+        '${config.serverUrl}/rest/ping.view'
+        '?u=${Uri.encodeComponent(config.username)}'
+        '&t=$token'
+        '&s=$salt'
+        '&v=1.13.0'
+        '&c=myapp'
+        '&f=json'
+      );
+      
+      final response = await http.get(pingUrl);
+      if (response.statusCode != 200) {
+        return 'Ping failed (HTTP ${response.statusCode}): ${response.body}';
+      }
+
+      try {
+        final jsonBody = json.decode(response.body);
+        final subsonicResponse = jsonBody['subsonic-response'];
+        if (subsonicResponse['status'] != 'ok') {
+          final error = subsonicResponse['error'];
+          return 'Server error: ${error['message'] ?? 'Unknown error'} (code: ${error['code'] ?? 'unknown'})';
+        }
+        return null; // 连接成功
+      } catch (e) {
+        return 'Invalid server response: $e';
+      }
+    } catch (e) {
+      return 'exception: $e';
+    }
+  }
+
+  Future<List<Song>> search(String query) async {
+    if (!isConfigured) return [];
+    
+    try {
+      final base = _config!.serverUrl.replaceAll(RegExp(r'/*$'), '');
+      final searchUrl = Uri.parse(
+        '$base/rest/search3.view'
+        '?u=${Uri.encodeComponent(_config!.username)}'
+        '&t=$_token'
+        '&s=$_salt'
+        '&v=1.13.0'
+        '&c=myapp'
+        '&f=json'
+        '&query=${Uri.encodeComponent(query)}'
+      );
+      
+      final response = await http.get(searchUrl);
+      if (response.statusCode != 200) return [];
+
+      final data = json.decode(response.body);
+      final songs = (data['song'] as List?)?.map((item) => Song(
+        id: item['id'],
+        title: item['title'],
+        artist: item['artist'],
+        url: '${_config!.serverUrl}/rest/stream?u=${_config!.username}&t=$_token&s=$_salt&v=1.16.1&c=myapp&id=${item['id']}',
+        coverUrl: '${_config!.serverUrl}/rest/getCoverArt?u=${_config!.username}&t=$_token&s=$_salt&v=1.16.1&c=myapp&id=${item['id']}',
+      )).toList() ?? [];
+
+      return songs;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Song>> getAlbum(String albumId) async {
+    if (!isConfigured) return [];
+    
+    try {
+      final base = _config!.serverUrl.replaceAll(RegExp(r'/*$'), '');
+      final url = Uri.parse(
+        '$base/rest/getAlbum.view'
+        '?u=${Uri.encodeComponent(_config!.username)}'
+        '&t=$_token'
+        '&s=$_salt'
+        '&v=1.13.0'
+        '&c=myapp'
+        '&f=json'
+        '&id=$albumId'
+      );
+      
+      final response = await http.get(url);
+      if (response.statusCode != 200) return [];
+
+      final data = json.decode(response.body);
+      final songs = (data['song'] as List?)?.map((item) => Song(
+        id: item['id'],
+        title: item['title'],
+        artist: item['artist'],
+        url: '${_config!.serverUrl}/rest/stream?u=${_config!.username}&t=$_token&s=$_salt&v=1.16.1&c=myapp&id=${item['id']}',
+        coverUrl: '${_config!.serverUrl}/rest/getCoverArt?u=${_config!.username}&t=$_token&s=$_salt&v=1.16.1&c=myapp&id=${item['id']}',
+      )).toList() ?? [];
+
+      return songs;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getAlbums() async {
+    if (!isConfigured) return [];
+    
+    try {
+      final base = _config!.serverUrl.replaceAll(RegExp(r'/*$'), '');
+      final url = Uri.parse(
+        '$base/rest/getAlbumList2.view'
+        '?u=${Uri.encodeComponent(_config!.username)}'
+        '&t=$_token'
+        '&s=$_salt'
+        '&v=1.13.0'
+        '&c=myapp'
+        '&f=json'
+        '&type=newest'
+      );
+      
+      final response = await http.get(url);
+      if (response.statusCode != 200) return [];
+
+      final data = json.decode(response.body);
+      return (data['subsonic-response']['albumList2']['album'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  void logout() {
+    _config = null;
+    _salt = null;
+    _token = null;
+  }
+}
