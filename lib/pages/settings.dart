@@ -33,6 +33,12 @@ class SettingsPage extends StatelessWidget {
                 value: context.watch<CacheService>().cacheEnabled,
                 onChanged: (value) => context.read<CacheService>().setCacheEnabled(value),
               ),
+              ListTile(
+                title: const Text('缓存大小限制'),
+                subtitle: Text(_formatCacheSize(context.watch<CacheService>().maxCacheSize)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _showCacheSizeDialog(context),
+              ),
             ],
           ),
           _buildSection(
@@ -123,6 +129,43 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  String _formatCacheSize(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    } else if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    } else if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    } else {
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
+  }
+
+  void _showCacheSizeDialog(BuildContext context) {
+    final cacheService = context.read<CacheService>();
+    int selectedSize = cacheService.maxCacheSize;
+    
+    final List<Map<String, dynamic>> sizeOptions = [
+      {'label': '100 MB', 'value': 100 * 1024 * 1024},
+      {'label': '250 MB', 'value': 250 * 1024 * 1024},
+      {'label': '500 MB', 'value': 500 * 1024 * 1024},
+      {'label': '1 GB', 'value': 1024 * 1024 * 1024},
+      {'label': '2 GB', 'value': 2 * 1024 * 1024 * 1024},
+      {'label': '5 GB', 'value': 5 * 1024 * 1024 * 1024},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return _CacheSizeDialog(
+          initialSize: selectedSize,
+          sizeOptions: sizeOptions,
+          onConfirm: (size) => cacheService.setMaxCacheSize(size),
+        );
+      },
+    );
+  }
+
   void _showColorPicker(BuildContext context) {
     Color pickedColor = context.read<ThemeService>().primaryColor;
     
@@ -179,6 +222,70 @@ class SettingsPage extends StatelessWidget {
           child: Column(
             children: children,
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CacheSizeDialog extends StatefulWidget {
+  final int initialSize;
+  final List<Map<String, dynamic>> sizeOptions;
+  final Function(int) onConfirm;
+
+  const _CacheSizeDialog({
+    required this.initialSize,
+    required this.sizeOptions,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_CacheSizeDialog> createState() => _CacheSizeDialogState();
+}
+
+class _CacheSizeDialogState extends State<_CacheSizeDialog> {
+  late int _selectedSize;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedSize = widget.initialSize;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('缓存大小限制'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: widget.sizeOptions.map((option) {
+            return RadioListTile<int>(
+              title: Text(option['label']),
+              value: option['value'],
+              groupValue: _selectedSize,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() {
+                    _selectedSize = value;
+                  });
+                }
+              },
+            );
+          }).toList(),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          child: const Text('取消'),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        TextButton(
+          child: const Text('确定'),
+          onPressed: () {
+            widget.onConfirm(_selectedSize);
+            Navigator.of(context).pop();
+          },
         ),
       ],
     );
