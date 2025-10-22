@@ -181,6 +181,9 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
       await _player.setAudioSource(_playlist);
       await play();
       this.mediaItem.add(mediaItem);
+    } else {
+      // 如果不是第一首歌曲，则更新播放列表
+      await _player.setAudioSource(_playlist);
     }
   }
 
@@ -202,6 +205,9 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
     }
     
     await _playlist.addAll(sources);
+    
+    // 更新播放器的音频源
+    await _player.setAudioSource(_playlist);
   }
 
   @override
@@ -212,19 +218,21 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
       list.removeAt(index);
       queue.add(list);
       
-      List<AudioSource> sources = [];
-      for (var item in list) {
-        if (cacheService.cacheEnabled) {
-          // 如果启用了缓存，使用缓存管理器
-          final file = await DefaultCacheManager().getSingleFile(item.id);
-          sources.add(AudioSource.file(file.path, tag: item));
-        } else {
-          // 否则直接使用URL
-          sources.add(AudioSource.uri(Uri.parse(item.id), tag: item));
+      // 更新播放列表
+      await _playlist.removeAt(index);
+      
+      // 如果删除的是当前播放的歌曲，停止播放
+      if (_player.currentIndex == index) {
+        await stop();
+        // 如果还有其他歌曲，播放下一首
+        if (list.isNotEmpty) {
+          if (index < list.length) {
+            await skipToQueueItem(index);
+          } else {
+            await skipToQueueItem(0);
+          }
         }
       }
-      
-      await _player.setAudioSource(ConcatenatingAudioSource(children: sources));
     }
   }
 
@@ -249,7 +257,25 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
         }
       }
       
-      await _player.setAudioSource(ConcatenatingAudioSource(children: sources));
+      // 获取当前播放索引
+      final currentIndex = _player.currentIndex;
+      final newPlaylist = ConcatenatingAudioSource(children: sources);
+      await _player.setAudioSource(newPlaylist);
+      
+      // 如果当前正在播放的项目被移动了，需要更新播放索引
+      if (currentIndex != null && from == currentIndex) {
+        // 如果项目移动到了新的位置，跳转到新位置
+        await _player.seek(Duration.zero, index: newIndex);
+      } else if (currentIndex != null) {
+        // 如果播放列表发生变化，确保索引仍然有效
+        if (newIndex < currentIndex && from >= currentIndex) {
+          // 项目从后面移到了前面，且原索引大于等于当前索引
+          await _player.seek(Duration.zero, index: currentIndex - 1);
+        } else if (newIndex >= currentIndex && from < currentIndex) {
+          // 项目从前面移到了后面，且原索引小于当前索引
+          await _player.seek(Duration.zero, index: currentIndex + 1);
+        }
+      }
     }
   }
 

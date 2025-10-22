@@ -23,6 +23,9 @@ class AudioHandlerService with ChangeNotifier {
   Future<void> playSong(Song s) async {
     _current = s;
     try {
+      // 先停止当前播放以避免重叠
+      await _player.stop();
+      
       // 检查是否启用了缓存
       final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
       
@@ -67,6 +70,9 @@ class AudioHandlerService with ChangeNotifier {
 
   Future<void> playSongFromMediaItem(MediaItem mediaItem) async {
     try {
+      // 先停止当前播放以避免重叠
+      await _player.stop();
+      
       // 检查是否启用了缓存
       final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
       
