@@ -143,23 +143,13 @@ class SettingsPage extends StatelessWidget {
 
   void _showCacheSizeDialog(BuildContext context) {
     final cacheService = context.read<CacheService>();
-    int selectedSize = cacheService.maxCacheSize;
+    int currentSize = cacheService.maxCacheSize;
     
-    final List<Map<String, dynamic>> sizeOptions = [
-      {'label': '100 MB', 'value': 100 * 1024 * 1024},
-      {'label': '250 MB', 'value': 250 * 1024 * 1024},
-      {'label': '500 MB', 'value': 500 * 1024 * 1024},
-      {'label': '1 GB', 'value': 1024 * 1024 * 1024},
-      {'label': '2 GB', 'value': 2 * 1024 * 1024 * 1024},
-      {'label': '5 GB', 'value': 5 * 1024 * 1024 * 1024},
-    ];
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return _CacheSizeDialog(
-          initialSize: selectedSize,
-          sizeOptions: sizeOptions,
+        return _CacheSizeInputDialog(
+          initialSize: currentSize,
           onConfirm: (size) => cacheService.setMaxCacheSize(size),
         );
       },
@@ -228,28 +218,51 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-class _CacheSizeDialog extends StatefulWidget {
+class _CacheSizeInputDialog extends StatefulWidget {
   final int initialSize;
-  final List<Map<String, dynamic>> sizeOptions;
   final Function(int) onConfirm;
 
-  const _CacheSizeDialog({
+  const _CacheSizeInputDialog({
     required this.initialSize,
-    required this.sizeOptions,
     required this.onConfirm,
   });
 
   @override
-  State<_CacheSizeDialog> createState() => _CacheSizeDialogState();
+  State<_CacheSizeInputDialog> createState() => _CacheSizeInputDialogState();
 }
 
-class _CacheSizeDialogState extends State<_CacheSizeDialog> {
-  late int _selectedSize;
+class _CacheSizeInputDialogState extends State<_CacheSizeInputDialog> {
+  late TextEditingController _textController;
+  late int _selectedUnit;
+  
+  // 单位选项
+  static const List<Map<String, dynamic>> units = [
+    {'label': 'MB', 'value': 1024 * 1024},
+    {'label': 'GB', 'value': 1024 * 1024 * 1024},
+  ];
 
   @override
   void initState() {
     super.initState();
-    _selectedSize = widget.initialSize;
+    
+    // 计算初始值和单位
+    int initialValue = widget.initialSize;
+    _selectedUnit = units[1]['value']; // 默认GB
+    
+    // 如果小于1GB，使用MB
+    if (initialValue < 1024 * 1024 * 1024) {
+      _selectedUnit = units[0]['value'];
+    }
+    
+    // 计算显示值
+    double displayValue = initialValue / _selectedUnit;
+    _textController = TextEditingController(text: displayValue.toStringAsFixed(1));
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    super.dispose();
   }
 
   @override
@@ -259,20 +272,48 @@ class _CacheSizeDialogState extends State<_CacheSizeDialog> {
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: widget.sizeOptions.map((option) {
-            return RadioListTile<int>(
-              title: Text(option['label']),
-              value: option['value'],
-              groupValue: _selectedSize,
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _selectedSize = value;
-                  });
-                }
-              },
-            );
-          }).toList(),
+          children: [
+            const Text('输入缓存大小限制:'),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _textController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                DropdownButton<int>(
+                  value: _selectedUnit,
+                  items: units.map<DropdownMenuItem<int>>((Map<String, dynamic> unit) {
+                    return DropdownMenuItem<int>(
+                      value: unit['value'],
+                      child: Text(unit['label']),
+                    );
+                  }).toList(),
+                  onChanged: (int? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedUnit = newValue;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '注意：输入值将被转换为最接近的整数',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+              ),
+            ),
+          ],
         ),
       ),
       actions: <Widget>[
@@ -283,7 +324,35 @@ class _CacheSizeDialogState extends State<_CacheSizeDialog> {
         TextButton(
           child: const Text('确定'),
           onPressed: () {
-            widget.onConfirm(_selectedSize);
+            // 解析输入值
+            final String inputText = _textController.text.trim();
+            if (inputText.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('请输入缓存大小')),
+              );
+              return;
+            }
+            
+            double? inputValue = double.tryParse(inputText);
+            if (inputValue == null || inputValue <= 0) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('请输入有效的正数')),
+              );
+              return;
+            }
+            
+            // 计算实际字节数
+            int actualSize = (inputValue * _selectedUnit).toInt();
+            
+            // 检查最小值（至少10MB）
+            if (actualSize < 10 * 1024 * 1024) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('缓存大小不能小于10MB')),
+              );
+              return;
+            }
+            
+            widget.onConfirm(actualSize);
             Navigator.of(context).pop();
           },
         ),
