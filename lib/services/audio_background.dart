@@ -4,7 +4,6 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'cache_service.dart';
-import 'notification_service.dart';
 
 /// Background audio handler that bridges just_audio with audio_service.
 class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
@@ -68,18 +67,6 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
         updatePosition: event.updatePosition,
         bufferedPosition: event.bufferedPosition,
       ));
-      
-      // Update system notification
-      final currentMedia = mediaItem.valueOrNull;
-      if (currentMedia != null) {
-        // 只有在播放时才显示通知
-        if (isPlaying) {
-          NotificationService.showNotification(currentMedia);
-        } else if (processingState == ProcessingState.completed) {
-          // 播放完成时清除通知
-          NotificationService.hideNotification();
-        }
-      }
     });
 
     // Listen to sequence updates
@@ -96,6 +83,22 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
         mediaItem.add(null);
       }
     });
+    
+    // 初始化播放状态
+    playbackState.add(PlaybackState(
+      controls: [
+        MediaControl.skipToPrevious,
+        MediaControl.play,
+        MediaControl.stop,
+        MediaControl.skipToNext,
+      ],
+      systemActions: const {MediaAction.seek, MediaAction.seekForward, MediaAction.seekBackward},
+      androidCompactActionIndices: const [0, 1, 3],
+      processingState: AudioProcessingState.idle,
+      playing: false,
+      updatePosition: Duration.zero,
+      bufferedPosition: Duration.zero,
+    ));
   }
 
   /// 播放完成时自动播放下一首歌曲
@@ -174,6 +177,7 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
     await _playlist.add(source);
     if (queue.value.length == 1) {
       // If this is the first item, start playing
+      await _player.stop(); // 停止当前播放以避免重叠
       await _player.setAudioSource(_playlist);
       this.mediaItem.add(mediaItem);
     }
@@ -252,7 +256,13 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= queue.value.length) return;
     await _player.seek(Duration.zero, index: index);
-    await play();
+    
+    // 检查当前是否正在播放，如果正在播放则继续播放，否则开始播放
+    if (_player.playing) {
+      await _player.play();
+    } else {
+      await play();
+    }
     
     // 更新当前媒体项
     mediaItem.add(queue.value[index]);

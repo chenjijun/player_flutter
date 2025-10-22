@@ -262,8 +262,8 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                             onTap: () async {
                               if (playing) {
                                 await svc.pause();
-                              } else if (song != null) {
-                                await svc.playSong(song);
+                              } else {
+                                await svc.play();
                               }
                             },
                             child: Container(

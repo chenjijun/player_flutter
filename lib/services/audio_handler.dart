@@ -6,7 +6,6 @@ import '../models/song.dart';
 import 'audio_background.dart';
 
 import 'dart:async';
-import 'notification_service.dart';
 
 class AudioHandlerService with ChangeNotifier {
   final _player = AudioPlayer();
@@ -48,6 +47,9 @@ class AudioHandlerService with ChangeNotifier {
       // 检查当前播放的是否是同一首歌曲
       bool isSameSong = backgroundHandler?.mediaItem.value?.id == s.url;
       
+      // 停止当前播放以避免重叠
+      await _player.stop();
+      
       if (!isSameSong) {
         if (cacheEnabled) {
           // 如果启用了缓存，先尝试从缓存加载
@@ -59,8 +61,6 @@ class AudioHandlerService with ChangeNotifier {
         }
       }
       
-      // start playing
-      await _player.play();
       // 所有操作完成后通知监听器
       notifyListeners();
     } catch (e) {
@@ -165,6 +165,11 @@ class AudioHandlerService with ChangeNotifier {
     }
   }
 
+  Future<void> play() async {
+    await _player.play();
+    notifyListeners();
+  }
+
   // Streams exposed for UI
   Stream<Duration> get positionStream => _player.positionStream;
   Stream<Duration?> get durationStream => _player.durationStream;
@@ -211,79 +216,7 @@ class AudioHandlerService with ChangeNotifier {
     if (backgroundHandler == null) return;
     _eventSub?.cancel();
     _eventSub = _player.playbackEventStream.listen((event) {
-      final playing = _player.playing;
-      final processingState = event.processingState;
-      AudioProcessingState audioState = AudioProcessingState.idle;
-      switch (processingState) {
-        case ProcessingState.idle:
-          audioState = AudioProcessingState.idle;
-          break;
-        case ProcessingState.loading:
-          audioState = AudioProcessingState.loading;
-          break;
-        case ProcessingState.buffering:
-          audioState = AudioProcessingState.buffering;
-          break;
-        case ProcessingState.ready:
-          audioState = AudioProcessingState.ready;
-          break;
-        case ProcessingState.completed:
-          audioState = AudioProcessingState.completed;
-          break;
-      }
-
-      // 检查是否播放完成
-      bool isPlaying = _player.playing;
-      if (processingState == ProcessingState.completed) {
-        isPlaying = false;
-      }
-
-      backgroundHandler?.playbackState.add(PlaybackState(
-        controls: [
-          MediaControl.pause,
-          MediaControl.stop,
-        ],
-        systemActions: const {
-          MediaAction.seek,
-          MediaAction.seekForward,
-          MediaAction.seekBackward,
-        },
-        androidCompactActionIndices: const [0, 1],
-        processingState: audioState,
-        playing: isPlaying,
-        updatePosition: _player.position,
-      ));
-      // Update system notification
-      final currentMedia = backgroundHandler?.mediaItem.valueOrNull;
-      if (currentMedia != null) {
-        // 只有在播放时才显示通知
-        if (isPlaying) {
-          NotificationService.showNotification(currentMedia);
-        } else if (processingState == ProcessingState.completed) {
-          // 播放完成时清除通知
-          NotificationService.hideNotification();
-        }
-      }
-    });
-    
-    // 监听背景服务中的媒体项变化
-    backgroundHandler?.mediaItem.listen((mediaItem) async {
-      if (mediaItem != null) {
-        // 将MediaItem转换为Song对象并更新当前歌曲
-        final song = Song(
-          id: mediaItem.id,
-          title: mediaItem.title,
-          artist: mediaItem.artist ?? '',
-          album: mediaItem.album ?? '',
-          duration: mediaItem.duration?.inSeconds ?? 0,
-          url: mediaItem.id,
-          coverUrl: mediaItem.artUri?.toString() ?? '',
-        );
-        _current = song;
-        
-        // 重置播放器状态以确保UI正确更新
-        notifyListeners();
-      }
+      // 只保留必要的事件监听，移除了向 backgroundHandler 发送状态和监听 mediaItem 的代码
     });
   }
 

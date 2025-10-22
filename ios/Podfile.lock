@@ -7,6 +7,8 @@ PODS:
   - Flutter (1.0.0)
   - flutter_local_notifications (0.0.1):
     - Flutter
+  - flutter_native_splash (2.4.3):
+    - Flutter
   - just_audio (0.0.1):
     - Flutter
     - FlutterMacOS
@@ -25,6 +27,7 @@ DEPENDENCIES:
   - audio_session (from `.symlinks/plugins/audio_session/ios`)
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
+  - flutter_native_splash (from `.symlinks/plugins/flutter_native_splash/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
   - path_provider_foundation (from `.symlinks/plugins/path_provider_foundation/darwin`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
@@ -39,6 +42,8 @@ EXTERNAL SOURCES:
     :path: Flutter
   flutter_local_notifications:
     :path: ".symlinks/plugins/flutter_local_notifications/ios"
+  flutter_native_splash:
+    :path: ".symlinks/plugins/flutter_native_splash/ios"
   just_audio:
     :path: ".symlinks/plugins/just_audio/darwin"
   path_provider_foundation:
@@ -53,6 +58,7 @@ SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: ad39620c743ea4c15127860f4b5641649a988100
+  flutter_native_splash: c32d145d68aeda5502d5f543ee38c192065986cf
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   path_provider_foundation: bb55f6dbba17d0dccd6737fe6f7f34fbd0376880
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb

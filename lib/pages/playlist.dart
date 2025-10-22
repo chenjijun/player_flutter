@@ -191,6 +191,18 @@ class PlaylistPage extends StatelessWidget {
                             if (index != -1) {
                               await svc.backgroundHandler!.skipToQueueItem(index);
                             }
+                          } else {
+                            // 如果后台服务未初始化，直接通过AudioHandlerService播放
+                            final song = Song(
+                              id: item.id,
+                              title: item.title,
+                              artist: item.artist ?? '',
+                              album: item.album ?? '',
+                              duration: item.duration?.inSeconds ?? 0,
+                              url: item.id,
+                              coverUrl: item.artUri?.toString() ?? '',
+                            );
+                            await svc.playSong(song);
                           }
                         },
                       ),
