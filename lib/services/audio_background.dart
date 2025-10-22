@@ -120,6 +120,10 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
 
   @override
   Future<void> play() async {
+    if (_player.playing) {
+      // 如果已经在播放，则先暂停再播放，确保状态正确
+      await _player.pause();
+    }
     await _player.play();
   }
 
@@ -176,13 +180,12 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
     
     await _playlist.add(source);
     if (queue.value.length == 1) {
-      // If this is the first item, start playing
-      await _player.stop(); // 停止当前播放以避免重叠
+      // 如果是第一首歌曲，设置音频源并开始播放
       await _player.setAudioSource(_playlist);
       await play();
       this.mediaItem.add(mediaItem);
     } else {
-      // 如果不是第一首歌曲，则更新播放列表
+      // 如果不是第一首歌曲，则更新播放列表但不自动播放
       await _player.setAudioSource(_playlist);
     }
   }
@@ -282,6 +285,9 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
   @override
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= queue.value.length) return;
+    
+    // 停止当前播放以避免重叠
+    await _player.stop();
     await _player.seek(Duration.zero, index: index);
     await play();
     

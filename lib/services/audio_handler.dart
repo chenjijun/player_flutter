@@ -13,6 +13,11 @@ class AudioHandlerService with ChangeNotifier {
   BackgroundAudioHandler? backgroundHandler;
   StreamSubscription<PlaybackEvent>? _eventSub;
 
+  // 添加一个播放状态变量来跟踪播放状态
+  bool _isPlaying = false;
+  
+  bool get isPlaying => _isPlaying;
+
   Song? get current => _current;
   
   set current(Song? song) {
@@ -20,11 +25,21 @@ class AudioHandlerService with ChangeNotifier {
     notifyListeners();
   }
 
+  // 添加播放状态流
+  Stream<bool> get playingStream => _player.playingStream;
+
+  // 添加位置和持续时间流
+  Stream<Duration> get positionStream => _player.positionStream;
+  
+  Stream<Duration?> get durationStream => _player.durationStream;
+
   Future<void> playSong(Song s) async {
     _current = s;
     try {
-      // 先停止当前播放以避免重叠
-      await _player.stop();
+      // 检查播放器当前状态，如果正在播放则先停止
+      if (_player.playing) {
+        await _player.stop();
+      }
       
       // 检查是否启用了缓存
       final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
@@ -60,6 +75,7 @@ class AudioHandlerService with ChangeNotifier {
       
       // start playing
       await _player.play();
+      _isPlaying = true;
       // 所有操作完成后通知监听器
       notifyListeners();
     } catch (e) {
@@ -70,8 +86,10 @@ class AudioHandlerService with ChangeNotifier {
 
   Future<void> playSongFromMediaItem(MediaItem mediaItem) async {
     try {
-      // 先停止当前播放以避免重叠
-      await _player.stop();
+      // 检查播放器当前状态，如果正在播放则先停止
+      if (_player.playing) {
+        await _player.stop();
+      }
       
       // 检查是否启用了缓存
       final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
@@ -104,6 +122,7 @@ class AudioHandlerService with ChangeNotifier {
       
       // start playing
       await _player.play();
+      _isPlaying = true;
       // 所有操作完成后通知监听器
       notifyListeners();
     } catch (e) {
@@ -130,19 +149,20 @@ class AudioHandlerService with ChangeNotifier {
     debugPrint('playAlbum called with albumId: $albumId');
   }
 
-  Future<void> pause() async {
-    await _player.pause();
+  Future<void> play() async {
+    await _player.play();
+    _isPlaying = true;
     notifyListeners();
   }
 
-  Future<void> stop() async {
-    await _player.stop();
+  Future<void> pause() async {
+    await _player.pause();
+    _isPlaying = false;
     notifyListeners();
   }
 
   Future<void> seek(Duration position) async {
     await _player.seek(position);
-    notifyListeners();
   }
 
   Future<void> skipToNext() async {
@@ -161,11 +181,6 @@ class AudioHandlerService with ChangeNotifier {
     }
   }
 
-  Future<void> play() async {
-    await _player.play();
-    notifyListeners();
-  }
-
   Future<void> refreshState() async {
     // 通知监听器刷新UI状态
     notifyListeners();
@@ -180,59 +195,12 @@ class AudioHandlerService with ChangeNotifier {
   }
 
   // Streams exposed for UI
-  Stream<Duration> get positionStream => _player.positionStream;
-  Stream<Duration?> get durationStream => _player.durationStream;
-  Stream<bool> get playingStream => _player.playingStream;
-  Stream<List<MediaItem>> get queueStream => backgroundHandler?.queue ?? Stream.value(<MediaItem>[]);
+  Stream<Duration> get bufferingStream => _player.bufferedPositionStream;
 
-  Future<void> addToQueue(MediaItem item) async {
-    if (backgroundHandler != null) {
-      await backgroundHandler!.addQueueItem(item);
-    }
-  }
-
-  Future<void> removeFromQueue(MediaItem item) async {
-    if (backgroundHandler != null) {
-      await backgroundHandler!.removeQueueItem(item);
-    }
-  }
-
-  Future<void> moveInQueue(MediaItem item, int newIndex) async {
-    if (backgroundHandler != null) {
-      await backgroundHandler!.moveQueueItem(item, newIndex);
-    }
-  }
-
-  Future<void> clearQueue() async {
-    if (backgroundHandler != null) {
-      // 清空播放队列
-      await backgroundHandler!.clearQueue();
-      
-      // 重置当前播放状态
-      _current = null;
-      
-      // 停止播放并重置播放器状态
-      await _player.stop();
-      await _player.setAudioSource(ConcatenatingAudioSource(children: []));
-      
-      // 通知UI更新
-      notifyListeners();
-    }
-  }
-
-  // Internal: broadcast just_audio events to background handler
-  void _bindBackground() {
-    if (backgroundHandler == null) return;
+  void dispose() {
+    _player.dispose();
     _eventSub?.cancel();
-    _eventSub = _player.playbackEventStream.listen((event) {
-      // 只保留必要的事件监听，移除了向 backgroundHandler 发送状态和监听 mediaItem 的代码
-    });
-  }
-
-  Future<void> initBackgroundServiceBound() async {
-    // 直接在主isolate中初始化背景服务，不要使用compute
-    backgroundHandler = await initBackground() as BackgroundAudioHandler;
-    _bindBackground();
+    super.dispose();
   }
 }
 
@@ -247,7 +215,6 @@ extension AudioHandlerServiceBackground on AudioHandlerService {
   Future<void> initBackgroundService() async {
     try {
       backgroundHandler = await initBackground() as BackgroundAudioHandler;
-      _bindBackground();
     } catch (e) {
       debugPrint('Failed to initialize background audio service: $e');
     }

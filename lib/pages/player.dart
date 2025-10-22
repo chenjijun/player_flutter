@@ -106,68 +106,36 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                       height: size.width * 0.8,
                       child: StreamBuilder<bool>(
                         stream: svc.playingStream,
-                        builder: (context, snapshot) {
-                          final playing = snapshot.data ?? false;
-                          if (playing) {
-                            _controller.repeat();
-                          } else {
-                            _controller.stop();
-                          }
-                          return Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              AnimatedBuilder(
-                                animation: _controller,
-                                builder: (_, child) {
-                                  return Transform.rotate(
-                                    angle: _controller.value * 2 * math.pi,
-                                    child: child,
-                                  );
-                                },
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.3),
-                                        blurRadius: 20,
-                                        spreadRadius: 5,
-                                      ),
-                                    ],
+                        builder: (context, snap) {
+                          final playing = snap.data ?? false;
+                          return GestureDetector(
+                            onTap: () async {
+                              if (playing) {
+                                await svc.pause();
+                              } else {
+                                await svc.play();
+                              }
+                            },
+                            child: Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.white.withOpacity(0.2),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
                                   ),
-                                  child: ClipOval(
-                                    child: song?.coverUrl != null && song!.coverUrl!.isNotEmpty
-                                            ? CachedNetworkImage(
-                                                imageUrl: song!.coverUrl!,
-                                                width: size.width * 0.8,
-                                                height: size.width * 0.8,
-                                                fit: BoxFit.cover,
-                                                errorWidget: (context, url, error) => Container(
-                                                  color: Colors.grey[800],
-                                                  child: const Icon(Icons.broken_image, size: 80, color: Colors.white),
-                                                ),
-                                              )
-                                        : Container(
-                                            width: size.width * 0.8,
-                                            height: size.width * 0.8,
-                                            color: Colors.grey[800],
-                                            child: const Icon(Icons.music_note,
-                                                size: 80, color: Colors.white),
-                                          ),
-                                  ),
-                                ),
+                                ],
                               ),
-                              // 只有在有歌曲播放时才显示中心的小圆点
-                              if (song != null)
-                                Container(
-                                  width: 25,
-                                  height: 25,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                            ],
+                              child: Icon(
+                                playing ? Icons.pause : Icons.play_arrow,
+                                size: 40,
+                                color: AppTheme.primaryRed,
+                              ),
+                            ),
                           );
                         },
                       ),
@@ -262,13 +230,11 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                           await svc.skipToPrevious();
                         },
                       ),
-                      StreamBuilder<bool>(
-                        stream: svc.playingStream,
-                        builder: (context, snap) {
-                          final playing = snap.data ?? false;
+                      Consumer<AudioHandlerService>(
+                        builder: (context, svc, child) {
                           return GestureDetector(
                             onTap: () async {
-                              if (playing) {
+                              if (svc.isPlaying) {
                                 await svc.pause();
                               } else {
                                 await svc.play();
@@ -289,7 +255,7 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                                 ],
                               ),
                               child: Icon(
-                                playing ? Icons.pause : Icons.play_arrow,
+                                svc.isPlaying ? Icons.pause : Icons.play_arrow,
                                 size: 40,
                                 color: AppTheme.primaryRed,
                               ),

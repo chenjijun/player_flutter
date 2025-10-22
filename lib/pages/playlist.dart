@@ -38,7 +38,7 @@ class PlaylistPage extends StatelessWidget {
         ],
       ),
       body: StreamBuilder<List<MediaItem>>(
-        stream: svc.queueStream,
+        stream: svc.backgroundHandler?.queue.stream,
         builder: (context, snap) {
           final list = snap.data ?? [];
           
@@ -113,7 +113,7 @@ class PlaylistPage extends StatelessWidget {
                         ),
                       ),
                       onDismissed: (direction) async {
-                        await svc.removeFromQueue(item);
+                        await svc.backgroundHandler?.removeQueueItem(item);
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar( // 修复SnackBar为非const
@@ -233,7 +233,7 @@ class PlaylistPage extends StatelessWidget {
             ),
             TextButton(
               onPressed: () async {
-                await svc.clearQueue();
+                await svc.backgroundHandler?.clearQueue();
                 if (context.mounted) {
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
