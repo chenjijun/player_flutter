@@ -265,6 +265,24 @@ class AudioHandlerService with ChangeNotifier {
         }
       }
     });
+    
+    // 监听背景服务中的媒体项变化
+    backgroundHandler?.mediaItem.listen((mediaItem) {
+      if (mediaItem != null) {
+        // 将MediaItem转换为Song对象并更新当前歌曲
+        final song = Song(
+          id: mediaItem.id,
+          title: mediaItem.title,
+          artist: mediaItem.artist ?? '',
+          album: mediaItem.album ?? '',
+          duration: mediaItem.duration?.inSeconds ?? 0,
+          url: mediaItem.id,
+          coverUrl: mediaItem.artUri?.toString() ?? '',
+        );
+        _current = song;
+        notifyListeners();
+      }
+    });
   }
 
   Future<void> initBackgroundServiceBound() async {
