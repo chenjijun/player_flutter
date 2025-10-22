@@ -89,7 +89,7 @@ class _MiniPlayerState extends State<MiniPlayer> {
                   ),
                 ),
                 StreamBuilder<bool>(
-                  stream: svc.playingStream,
+                  stream: svc.playbackStateStream.map((state) => state.playing),
                   builder: (context, snapshot) {
                     final playing = snapshot.data ?? false;
                     return IconButton(

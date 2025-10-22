@@ -4,6 +4,7 @@ import 'package:audio_service/audio_service.dart';
 import '../services/audio_handler.dart';
 import '../services/database_service.dart';
 import '../widgets/track_tile.dart';
+import '../models/song.dart';
 
 class LocalMusicPage extends StatefulWidget {
   const LocalMusicPage({super.key});
@@ -81,14 +82,25 @@ class _LocalMusicPageState extends State<LocalMusicPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _cachedSongs.length,
                 itemBuilder: (context, index) {
-                  final song = _cachedSongs[index];
+                  final mediaItem = _cachedSongs[index];
                   return TrackTile(
-                    title: song.title,
-                    subtitle: song.artist ?? '未知艺术家',
-                    coverUrl: song.artUri?.toString(),
+                    title: mediaItem.title,
+                    subtitle: mediaItem.artist ?? '未知艺术家',
+                    coverUrl: mediaItem.artUri?.toString(),
                     onTap: () {
                       final audioHandler = context.read<AudioHandlerService>();
-                      audioHandler.playSongFromMediaItem(song);
+                      // 将MediaItem转换为Song对象
+                      final song = Song(
+                        id: mediaItem.id.hashCode.toString(), // 生成一个唯一的ID
+                        title: mediaItem.title,
+                        artist: mediaItem.artist ?? '',
+                        album: mediaItem.album ?? '',
+                        url: mediaItem.id, // 使用id作为url
+                        coverUrl: mediaItem.artUri?.toString(),
+                        duration: mediaItem.duration?.inSeconds ?? 0,
+                      );
+                      audioHandler.playSong(song);
+
                     },
                   );
                 },

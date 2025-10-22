@@ -62,7 +62,7 @@ class _HomePageState extends State<HomePage> {
         title: const Text('缝合音乐工具'),
         actions: [
           StreamBuilder<bool>(
-            stream: svc.playingStream,
+            stream: svc.playbackStateStream.map((state) => state.playing),
             builder: (context, snapshot) {
               final isPlaying = snapshot.data ?? false;
               return IconButton(
@@ -183,7 +183,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
     try {
       // 先设置当前歌曲以立即更新UI
       audioService.current = song;
-      
+
       // 异步播放歌曲，不阻塞UI
       unawaited(audioService.playSong(song));
     } catch (e) {

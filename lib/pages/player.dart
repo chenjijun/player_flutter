@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:audio_service/audio_service.dart';
 import '../services/audio_handler.dart';
 import '../theme/app_theme.dart';
 import 'dart:math' as math;
@@ -33,9 +33,7 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // 页面每次显示时都刷新播放状态
-    final svc = Provider.of<AudioHandlerService>(context, listen: false);
-    svc.refreshState();
+    // 不再需要手动刷新状态，由audio_service自动处理
   }
 
   String _formatDuration(Duration duration) {
@@ -104,13 +102,13 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                     SizedBox(
                       width: size.width * 0.8,
                       height: size.width * 0.8,
-                      child: StreamBuilder<bool>(
-                        stream: svc.playingStream,
-                        builder: (context, snap) {
-                          final playing = snap.data ?? false;
+                      child: StreamBuilder<PlaybackState>(
+                        stream: svc.playbackStateStream,
+                        builder: (context, snapshot) {
+                          final isPlaying = snapshot.data?.playing ?? false;
                           return GestureDetector(
                             onTap: () async {
-                              if (playing) {
+                              if (isPlaying) {
                                 await svc.pause();
                               } else {
                                 await svc.play();
@@ -131,7 +129,7 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                                 ],
                               ),
                               child: Icon(
-                                playing ? Icons.pause : Icons.play_arrow,
+                                isPlaying ? Icons.pause : Icons.play_arrow,
                                 size: 40,
                                 color: AppTheme.primaryRed,
                               ),
@@ -230,11 +228,13 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                           await svc.skipToPrevious();
                         },
                       ),
-                      Consumer<AudioHandlerService>(
-                        builder: (context, svc, child) {
+                      StreamBuilder<PlaybackState>(
+                        stream: svc.playbackStateStream,
+                        builder: (context, snapshot) {
+                          final isPlaying = snapshot.data?.playing ?? false;
                           return GestureDetector(
                             onTap: () async {
-                              if (svc.isPlaying) {
+                              if (isPlaying) {
                                 await svc.pause();
                               } else {
                                 await svc.play();
@@ -255,7 +255,7 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                                 ],
                               ),
                               child: Icon(
-                                svc.isPlaying ? Icons.pause : Icons.play_arrow,
+                                isPlaying ? Icons.pause : Icons.play_arrow,
                                 size: 40,
                                 color: AppTheme.primaryRed,
                               ),

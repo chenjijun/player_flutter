@@ -32,8 +32,8 @@ Future<void> main() async {
   
   // 初始化音频服务
   final audioService = AudioHandlerService();
-  await audioService.initBackgroundService();
-  
+  await audioService.initialize();
+
   runApp(MainApp(
     audioService: audioService,
     modeService: modeService,

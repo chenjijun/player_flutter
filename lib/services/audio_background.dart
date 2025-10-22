@@ -124,6 +124,12 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
       // 如果已经在播放，则先暂停再播放，确保状态正确
       await _player.pause();
     }
+    
+    // 确保音频源已加载
+    if (_playlist.length > 0 && _player.audioSource == null) {
+      await _player.setAudioSource(_playlist, initialIndex: 0, preload: true);
+    }
+    
     await _player.play();
   }
 
@@ -135,7 +141,9 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
   @override
   Future<void> stop() async {
     await _player.stop();
-    await super.stop();
+    await _playlist.clear();
+    queue.add([]);
+    mediaItem.add(null);
   }
 
   @override
@@ -159,14 +167,37 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
     final existingIndex = queue.value.indexWhere((item) => item.id == mediaItem.id);
     
     if (existingIndex != -1) {
-      // 如果歌曲已存在，直接跳转到该歌曲
-      await skipToQueueItem(existingIndex);
+      // 如果歌曲已存在，移除它
+      final list = List<MediaItem>.from(queue.value);
+      list.removeAt(existingIndex);
+      
+      // 将歌曲添加到队列顶部
+      list.insert(0, mediaItem);
+      queue.add(list);
+      
+      // 更新播放列表
+      List<AudioSource> sources = [];
+      for (var item in list) {
+        if (cacheService.cacheEnabled) {
+          // 如果启用了缓存，使用缓存管理器
+          final file = await DefaultCacheManager().getSingleFile(item.id);
+          sources.add(AudioSource.file(file.path, tag: item));
+        } else {
+          // 否则直接使用URL
+          sources.add(AudioSource.uri(Uri.parse(item.id), tag: item));
+        }
+      }
+      
+      await _playlist.clear();
+      await _playlist.addAll(sources);
+      await _player.setAudioSource(_playlist);
       return;
     }
     
-    // 歌曲不存在于队列中，添加到队列
-    final uri = Uri.parse(mediaItem.id);
-    queue.add(List.from(queue.value)..add(mediaItem));
+    // 歌曲不存在于队列中，添加到队列顶部
+    final list = List<MediaItem>.from(queue.value);
+    list.insert(0, mediaItem);
+    queue.add(list);
     
     AudioSource source;
     if (cacheService.cacheEnabled) {
@@ -175,18 +206,16 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
       source = AudioSource.file(file.path, tag: mediaItem);
     } else {
       // 否则直接使用URL
-      source = AudioSource.uri(uri, tag: mediaItem);
+      source = AudioSource.uri(Uri.parse(mediaItem.id), tag: mediaItem);
     }
     
-    await _playlist.add(source);
-    if (queue.value.length == 1) {
-      // 如果是第一首歌曲，设置音频源并开始播放
-      await _player.setAudioSource(_playlist);
-      await play();
+    // 添加到播放列表的开头
+    await _playlist.insert(0, source);
+    await _player.setAudioSource(_playlist);
+    
+    // 如果当前没有播放，开始播放第一首歌曲
+    if (!_player.playing && queue.value.length == 1) {
       this.mediaItem.add(mediaItem);
-    } else {
-      // 如果不是第一首歌曲，则更新播放列表但不自动播放
-      await _player.setAudioSource(_playlist);
     }
   }
 
@@ -286,13 +315,19 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= queue.value.length) return;
     
-    // 停止当前播放以避免重叠
-    await _player.stop();
+    // 检查播放器当前状态，如果正在播放则先暂停
+    if (_player.playing) {
+      await _player.pause();
+    }
+    
+    // 跳转到指定索引
     await _player.seek(Duration.zero, index: index);
     await play();
     
     // 更新当前媒体项
-    mediaItem.add(queue.value[index]);
+    if (index < queue.value.length) {
+      mediaItem.add(queue.value[index]);
+    }
   }
 
   @override
@@ -334,6 +369,9 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
       bufferedPosition: Duration.zero,
     ));
   }
+
+  // 添加获取队列流的方法
+  Stream<List<MediaItem>> get queueStream => queue.stream;
 }
 
 /// Initialize audio service and return an [AudioHandler].

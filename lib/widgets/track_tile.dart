@@ -16,8 +16,18 @@ class TrackTile extends StatelessWidget {
 
     return ListTile(
       leading: ClipRRect(borderRadius: BorderRadius.circular(4), child: leading),
-      title: Text(title),
-      subtitle: Text(subtitle),
+      title: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.white, // 设置标题为白色
+        ),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: TextStyle(
+          color: Colors.white70, // 设置副标题为白色70%透明度
+        ),
+      ),
       onTap: onTap,
     );
   }

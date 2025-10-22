@@ -188,7 +188,8 @@ class _NavidromePlaylistDetailPageState extends State<NavidromePlaylistDetailPag
                                     ? Uri.parse(song.coverUrl!) 
                                     : null,
                               );
-                              await audioHandler.backgroundHandler?.addQueueItem(mediaItem);
+                              await audioHandler.addQueueItem(mediaItem);
+
                             }
                           }
                           
@@ -300,7 +301,8 @@ class _NavidromePlaylistDetailPageState extends State<NavidromePlaylistDetailPag
                       ? Uri.parse(nextSong.coverUrl!) 
                       : null,
                 );
-                await audioHandler.backgroundHandler?.addQueueItem(mediaItem);
+                await audioHandler.addQueueItem(mediaItem);
+
               }
               
               Navigator.pushNamed(context, '/player');
