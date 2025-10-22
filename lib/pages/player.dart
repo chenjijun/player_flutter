@@ -30,6 +30,14 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
     super.dispose();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 页面每次显示时都刷新播放状态
+    final svc = Provider.of<AudioHandlerService>(context, listen: false);
+    svc.refreshState();
+  }
+
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));

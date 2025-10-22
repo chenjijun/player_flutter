@@ -173,14 +173,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
         coverUrl: 'https://picsum.photos/300/301',
         duration: 240,
       ),
-      Song(
-        id: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-        title: 'SoundHelix 3',
-        artist: 'SoundHelix',
-        url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
-        coverUrl: 'https://picsum.photos/300/302',
-        duration: 200,
-      ),
+      
     ];
   }
 
