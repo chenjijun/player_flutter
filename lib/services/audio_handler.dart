@@ -54,6 +54,35 @@ class AudioHandlerService with ChangeNotifier {
     }
   }
 
+  Future<void> playSongFromMediaItem(MediaItem mediaItem) async {
+    try {
+      // 检查是否启用了缓存
+      final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
+      
+      if (cacheEnabled) {
+        // 如果启用了缓存，先尝试从缓存加载
+        final file = await DefaultCacheManager().getSingleFile(mediaItem.id);
+        await _player.setFilePath(file.path);
+      } else {
+        // 否则直接从网络播放
+        await _player.setUrl(mediaItem.id);
+      }
+      
+      // add to handler queue (and update mediaItem stream)
+      if (backgroundHandler != null) {
+        await backgroundHandler!.addQueueItem(mediaItem);
+      }
+      
+      // start playing
+      await _player.play();
+      // 所有操作完成后通知监听器
+      notifyListeners();
+    } catch (e) {
+      debugPrint('playSongFromMediaItem error: $e');
+      rethrow;
+    }
+  }
+
   /// 在后台isolate中运行的静态方法，用于创建MediaItem。
   static MediaItem _createMediaItem(Song song) {
     return MediaItem(

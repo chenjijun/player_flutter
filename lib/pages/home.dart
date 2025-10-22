@@ -7,6 +7,7 @@ import '../models/song.dart';
 import '../widgets/mini_player.dart';
 import '../services/theme_service.dart';
 import 'navidrome_library.dart';
+import 'local_music.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,23 +16,6 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class OtherPage extends StatefulWidget {
-  const OtherPage({super.key});
-
-  @override
-  State<OtherPage> createState() => _OtherPageState();
-}
-
-class _OtherPageState extends State<OtherPage> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: const Center(
-        child: Text('其他'),
-      ),
-    );
-  }
-}
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
@@ -39,7 +23,7 @@ class _HomePageState extends State<HomePage> {
   final List<Widget> _pages = [
     const DiscoverPage(),
     const NavidromeLibraryPage(), // Navidrome页面 - 索引 1
-    const OtherPage(),            // "其他"页面 - 索引 2
+    const LocalMusicPage(),       // 本地音乐页面 - 索引 2
     const MyPage(),               // "我的"页面 - 索引 3
   ];
 
@@ -116,7 +100,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             _buildNavItem(0, Icons.home, '首页'),
             _buildNavItem(1, Icons.library_music, 'Navidrome'),
-            _buildNavItem(2, Icons.apps, '其他'),
+            _buildNavItem(2, Icons.music_note, '本地音乐'),
             _buildNavItem(3, Icons.person, '我的'),
           ],
         ),
