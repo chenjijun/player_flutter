@@ -1,6 +1,7 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:async';
 import 'cache_service.dart';
 import 'notification_service.dart';
@@ -49,6 +50,8 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
       bool isPlaying = _player.playing;
       if (processingState == ProcessingState.completed) {
         isPlaying = false;
+        // 播放完成时自动播放下一首
+        _playNextAutomatically();
       }
 
       playbackState.add(PlaybackState(
@@ -93,6 +96,23 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
         mediaItem.add(null);
       }
     });
+  }
+
+  /// 播放完成时自动播放下一首歌曲
+  Future<void> _playNextAutomatically() async {
+    try {
+      // 获取当前播放索引
+      final currentIndex = _player.currentIndex;
+      if (currentIndex != null && currentIndex < queue.value.length - 1) {
+        // 还有下一首歌曲，自动播放
+        await skipToNext();
+      } else if (currentIndex != null && currentIndex == queue.value.length - 1) {
+        // 已经是最后一首歌曲，停止播放
+        await stop();
+      }
+    } catch (e) {
+      debugPrint('自动播放下一首歌曲失败: $e');
+    }
   }
 
   @override

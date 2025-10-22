@@ -27,6 +27,24 @@ class AudioHandlerService with ChangeNotifier {
       // 检查是否启用了缓存
       final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
       
+      // 在后台isolate中创建MediaItem以避免阻塞UI线程
+      final media = await compute(_createMediaItem, s);
+      
+      // 先添加到播放列表
+      if (backgroundHandler != null) {
+        // 检查队列中是否已存在该歌曲
+        final queue = backgroundHandler!.queue.value;
+        final existingIndex = queue.indexWhere((item) => item.id == s.url);
+        
+        if (existingIndex != -1) {
+          // 如果歌曲已在队列中，跳转到该歌曲
+          await backgroundHandler!.skipToQueueItem(existingIndex);
+        } else {
+          // 否则添加到队列
+          await backgroundHandler!.addQueueItem(media);
+        }
+      }
+      
       // 检查当前播放的是否是同一首歌曲
       bool isSameSong = backgroundHandler?.mediaItem.value?.id == s.url;
       
@@ -39,27 +57,6 @@ class AudioHandlerService with ChangeNotifier {
           // 否则直接从网络播放
           await _player.setUrl(s.url);
         }
-        
-        // 在后台isolate中创建MediaItem以避免阻塞UI线程
-        final media = await compute(_createMediaItem, s);
-        
-        // add to handler queue (and update mediaItem stream)
-        if (backgroundHandler != null) {
-          // 检查队列中是否已存在该歌曲
-          final queue = backgroundHandler!.queue.value;
-          final existingIndex = queue.indexWhere((item) => item.id == s.url);
-          
-          if (existingIndex != -1) {
-            // 如果歌曲已在队列中，跳转到该歌曲
-            await backgroundHandler!.skipToQueueItem(existingIndex);
-          } else {
-            // 否则添加到队列
-            await backgroundHandler!.addQueueItem(media);
-          }
-        }
-      } else {
-        // 如果是同一首歌曲，直接播放
-        await _player.play();
       }
       
       // start playing

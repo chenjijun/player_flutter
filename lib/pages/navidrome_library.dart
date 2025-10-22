@@ -455,6 +455,9 @@ class _AllSongsPageState extends State<AllSongsPage> {
       final modeService = Provider.of<ModeService>(context, listen: false);
       final audioService = Provider.of<AudioHandlerService>(context, listen: false);
       
+      // 确保更新AudioHandlerService的current属性
+      audioService.current = song;
+      
       // 异步播放歌曲，不阻塞UI
       unawaited(audioService.playSong(song));
       
@@ -463,8 +466,6 @@ class _AllSongsPageState extends State<AllSongsPage> {
         _currentSong = song;
       });
       
-      // 确保更新AudioHandlerService的current属性
-      audioService.current = song;
       audioService.notifyListeners();
       
     } catch (e) {
