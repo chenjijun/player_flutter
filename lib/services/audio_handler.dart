@@ -27,21 +27,39 @@ class AudioHandlerService with ChangeNotifier {
       // 检查是否启用了缓存
       final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
       
-      if (cacheEnabled) {
-        // 如果启用了缓存，先尝试从缓存加载
-        final file = await DefaultCacheManager().getSingleFile(s.url);
-        await _player.setFilePath(file.path);
+      // 检查当前播放的是否是同一首歌曲
+      bool isSameSong = backgroundHandler?.mediaItem.value?.id == s.url;
+      
+      if (!isSameSong) {
+        if (cacheEnabled) {
+          // 如果启用了缓存，先尝试从缓存加载
+          final file = await DefaultCacheManager().getSingleFile(s.url);
+          await _player.setFilePath(file.path);
+        } else {
+          // 否则直接从网络播放
+          await _player.setUrl(s.url);
+        }
+        
+        // 在后台isolate中创建MediaItem以避免阻塞UI线程
+        final media = await compute(_createMediaItem, s);
+        
+        // add to handler queue (and update mediaItem stream)
+        if (backgroundHandler != null) {
+          // 检查队列中是否已存在该歌曲
+          final queue = backgroundHandler!.queue.value;
+          final existingIndex = queue.indexWhere((item) => item.id == s.url);
+          
+          if (existingIndex != -1) {
+            // 如果歌曲已在队列中，跳转到该歌曲
+            await backgroundHandler!.skipToQueueItem(existingIndex);
+          } else {
+            // 否则添加到队列
+            await backgroundHandler!.addQueueItem(media);
+          }
+        }
       } else {
-        // 否则直接从网络播放
-        await _player.setUrl(s.url);
-      }
-      
-      // 在后台isolate中创建MediaItem以避免阻塞UI线程
-      final media = await compute(_createMediaItem, s);
-      
-      // add to handler queue (and update mediaItem stream)
-      if (backgroundHandler != null) {
-        await backgroundHandler!.addQueueItem(media);
+        // 如果是同一首歌曲，直接播放
+        await _player.play();
       }
       
       // start playing
@@ -56,21 +74,39 @@ class AudioHandlerService with ChangeNotifier {
 
   Future<void> playSongFromMediaItem(MediaItem mediaItem) async {
     try {
-      // 检查是否启用了缓存
-      final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
+      // 检查当前播放的是否是同一首歌曲
+      bool isSameSong = backgroundHandler?.mediaItem.value?.id == mediaItem.id;
       
-      if (cacheEnabled) {
-        // 如果启用了缓存，先尝试从缓存加载
-        final file = await DefaultCacheManager().getSingleFile(mediaItem.id);
-        await _player.setFilePath(file.path);
+      if (!isSameSong) {
+        // 检查是否启用了缓存
+        final cacheEnabled = backgroundHandler?.cacheService.cacheEnabled ?? false;
+        
+        if (cacheEnabled) {
+          // 如果启用了缓存，先尝试从缓存加载
+          final file = await DefaultCacheManager().getSingleFile(mediaItem.id);
+          await _player.setFilePath(file.path);
+        } else {
+          // 否则直接从网络播放
+          await _player.setUrl(mediaItem.id);
+        }
+        
+        // add to handler queue (and update mediaItem stream)
+        if (backgroundHandler != null) {
+          // 检查队列中是否已存在该歌曲
+          final queue = backgroundHandler!.queue.value;
+          final existingIndex = queue.indexWhere((item) => item.id == mediaItem.id);
+          
+          if (existingIndex != -1) {
+            // 如果歌曲已在队列中，跳转到该歌曲
+            await backgroundHandler!.skipToQueueItem(existingIndex);
+          } else {
+            // 否则添加到队列
+            await backgroundHandler!.addQueueItem(mediaItem);
+          }
+        }
       } else {
-        // 否则直接从网络播放
-        await _player.setUrl(mediaItem.id);
-      }
-      
-      // add to handler queue (and update mediaItem stream)
-      if (backgroundHandler != null) {
-        await backgroundHandler!.addQueueItem(mediaItem);
+        // 如果是同一首歌曲，直接播放
+        await _player.play();
       }
       
       // start playing
@@ -199,6 +235,12 @@ class AudioHandlerService with ChangeNotifier {
           break;
       }
 
+      // 检查是否播放完成
+      bool isPlaying = _player.playing;
+      if (processingState == ProcessingState.completed) {
+        isPlaying = false;
+      }
+
       backgroundHandler?.playbackState.add(PlaybackState(
         controls: [
           MediaControl.pause,
@@ -211,13 +253,19 @@ class AudioHandlerService with ChangeNotifier {
         },
         androidCompactActionIndices: const [0, 1],
         processingState: audioState,
-        playing: playing,
+        playing: isPlaying,
         updatePosition: _player.position,
       ));
       // Update system notification
       final currentMedia = backgroundHandler?.mediaItem.valueOrNull;
       if (currentMedia != null) {
-        NotificationService.showNotification(currentMedia);
+        // 只有在播放时才显示通知
+        if (isPlaying) {
+          NotificationService.showNotification(currentMedia);
+        } else if (processingState == ProcessingState.completed) {
+          // 播放完成时清除通知
+          NotificationService.hideNotification();
+        }
       }
     });
   }

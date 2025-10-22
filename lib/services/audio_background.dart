@@ -3,6 +3,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'dart:async';
 import 'cache_service.dart';
+import 'notification_service.dart';
 
 /// Background audio handler that bridges just_audio with audio_service.
 class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
@@ -44,20 +45,38 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
           break;
       }
 
+      // 检查是否播放完成
+      bool isPlaying = _player.playing;
+      if (processingState == ProcessingState.completed) {
+        isPlaying = false;
+      }
+
       playbackState.add(PlaybackState(
         controls: [
           MediaControl.skipToPrevious,
-          if (_player.playing) MediaControl.pause else MediaControl.play,
+          if (isPlaying) MediaControl.pause else MediaControl.play,
           MediaControl.stop,
           MediaControl.skipToNext,
         ],
         systemActions: const {MediaAction.seek, MediaAction.seekForward, MediaAction.seekBackward},
         androidCompactActionIndices: const [0, 1, 3],
         processingState: audioState,
-        playing: _player.playing,
+        playing: isPlaying,
         updatePosition: event.updatePosition,
         bufferedPosition: event.bufferedPosition,
       ));
+      
+      // Update system notification
+      final currentMedia = mediaItem.valueOrNull;
+      if (currentMedia != null) {
+        // 只有在播放时才显示通知
+        if (isPlaying) {
+          NotificationService.showNotification(currentMedia);
+        } else if (processingState == ProcessingState.completed) {
+          // 播放完成时清除通知
+          NotificationService.hideNotification();
+        }
+      }
     });
 
     // Listen to sequence updates
@@ -109,6 +128,16 @@ class BackgroundAudioHandler extends BaseAudioHandler with QueueHandler, SeekHan
 
   @override
   Future<void> addQueueItem(MediaItem mediaItem) async {
+    // 检查队列中是否已存在相同的歌曲
+    final existingIndex = queue.value.indexWhere((item) => item.id == mediaItem.id);
+    
+    if (existingIndex != -1) {
+      // 如果歌曲已存在，直接跳转到该歌曲
+      await skipToQueueItem(existingIndex);
+      return;
+    }
+    
+    // 歌曲不存在于队列中，添加到队列
     final uri = Uri.parse(mediaItem.id);
     queue.add(List.from(queue.value)..add(mediaItem));
     
