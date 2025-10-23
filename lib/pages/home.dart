@@ -62,7 +62,7 @@ class _HomePageState extends State<HomePage> {
         title: const Text('缝合音乐工具'),
         actions: [
           StreamBuilder<bool>(
-            stream: svc.playbackStateStream.map((state) => state.playing),
+            stream: svc.playbackStateStream,
             builder: (context, snapshot) {
               final isPlaying = snapshot.data ?? false;
               return IconButton(

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:audio_service/audio_service.dart';
 import '../services/audio_handler.dart';
 import '../theme/app_theme.dart';
 import 'dart:math' as math;
@@ -102,10 +101,10 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                     SizedBox(
                       width: size.width * 0.8,
                       height: size.width * 0.8,
-                      child: StreamBuilder<PlaybackState>(
+                      child: StreamBuilder<bool>(
                         stream: svc.playbackStateStream,
                         builder: (context, snapshot) {
-                          final isPlaying = snapshot.data?.playing ?? false;
+                          final isPlaying = snapshot.data ?? false;
                           return GestureDetector(
                             onTap: () async {
                               if (isPlaying) {
@@ -228,10 +227,10 @@ class _PlayerPageState extends State<PlayerPage> with SingleTickerProviderStateM
                           await svc.skipToPrevious();
                         },
                       ),
-                      StreamBuilder<PlaybackState>(
+                      StreamBuilder<bool>(
                         stream: svc.playbackStateStream,
                         builder: (context, snapshot) {
-                          final isPlaying = snapshot.data?.playing ?? false;
+                          final isPlaying = snapshot.data ?? false;
                           return GestureDetector(
                             onTap: () async {
                               if (isPlaying) {
