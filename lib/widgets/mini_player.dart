@@ -101,8 +101,15 @@ class _MiniPlayerState extends State<MiniPlayer> {
                       onPressed: () {
                         if (playing) {
                           svc.pause();
+                          // 强制更新所有状态流
+                          svc.forceUpdateStreams();
                         } else if (song != null) {
                           svc.playSong(song);
+                          // 添加延迟以确保状态更新完成
+                          Future.delayed(const Duration(milliseconds: 100), () {
+                            // 强制更新所有状态流
+                            svc.forceUpdateStreams();
+                          });
                         }
                       },
                     );

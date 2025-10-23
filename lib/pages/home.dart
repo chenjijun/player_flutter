@@ -98,10 +98,10 @@ class _HomePageState extends State<HomePage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _buildNavItem(0, Icons.home, '首页'),
-            _buildNavItem(1, Icons.library_music, 'Navidrome'),
-            _buildNavItem(2, Icons.music_note, '本地音乐'),
-            _buildNavItem(3, Icons.person, '我的'),
+            Expanded(child: _buildNavItem(0, Icons.home, '首页')),
+            Expanded(child: _buildNavItem(1, Icons.library_music, 'Navidrome')),
+            Expanded(child: _buildNavItem(2, Icons.music_note, '本地音乐')),
+            Expanded(child: _buildNavItem(3, Icons.person, '我的')),
           ],
         ),
       ),
@@ -113,7 +113,7 @@ class _HomePageState extends State<HomePage> {
     return GestureDetector(
       onTap: () => _onNavItemTap(index),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12), // 移除horizontal内边距
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [

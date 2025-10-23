@@ -403,11 +403,29 @@ class _AllSongsPageState extends State<AllSongsPage> {
   int _songsPerPage = 20;
   bool _isPlaying = false;
   Song? _currentSong;
+  late StreamSubscription _audioStateSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadSongs();
+    
+    // 监听音频状态变化
+    final audioService = Provider.of<AudioHandlerService>(context, listen: false);
+    _audioStateSubscription = audioService.playbackStateStream.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state;
+          _currentSong = audioService.current;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _audioStateSubscription.cancel();
+    super.dispose();
   }
 
   Future<void> _loadSongs() async {
@@ -455,26 +473,55 @@ class _AllSongsPageState extends State<AllSongsPage> {
       final modeService = Provider.of<ModeService>(context, listen: false);
       final audioService = Provider.of<AudioHandlerService>(context, listen: false);
       
-      // 确保更新AudioHandlerService的current属性
-      audioService.current = song;
+      // 检查是否是同一首歌曲
+      if (audioService.current?.id == song.id) {
+        // 如果是同一首歌曲，不再跳转到播放页面
+        return;
+      }
       
       // 异步播放歌曲，不阻塞UI
-      unawaited(audioService.playSong(song));
+      await audioService.playSong(song);
+      
+      // 等待播放状态更新
+      await Future.delayed(const Duration(milliseconds: 100));
       
       setState(() {
-        _isPlaying = true;
-        _currentSong = song;
+        _isPlaying = audioService.playing;
+        _currentSong = audioService.current;
       });
       
-      audioService.notifyListeners();
+      // 不再自动跳转到播放页面
+      // if (mounted) {
+      //   Navigator.pushNamed(context, '/player');
+      // }
       
     } catch (e) {
       debugPrint('播放歌曲失败: $e');
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('播放失败: $e'), backgroundColor: NeteaseMusicTheme.primaryRed),
         );
       }
+    }
+  }
+
+  Future<void> _togglePlayPause(Song song) async {
+    try {
+      final audioService = Provider.of<AudioHandlerService>(context, listen: false);
+      
+      // 获取当前播放状态
+      final isPlaying = audioService.playing;
+      final currentSongId = audioService.current?.id;
+      
+      if (currentSongId == song.id && isPlaying) {
+        // 如果是当前正在播放的歌曲，则暂停
+        await audioService.pause();
+      } else {
+        // 否则播放该歌曲，但不再跳转到播放页面
+        await _playSong(song);
+      }
+    } catch (e) {
+      debugPrint('切换播放/暂停失败: $e');
     }
   }
 
@@ -791,16 +838,21 @@ class _AllSongsPageState extends State<AllSongsPage> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            trailing: Text(
-                              _formatDuration(song.duration ?? 0),
-                              style: TextStyle(
-                                color: isCurrentSong 
-                                    ? themeService.primaryColor 
-                                    : NeteaseMusicTheme.secondaryText,
-                                fontSize: 12,
+                            trailing: IconButton(
+                              icon: Icon(
+                                _currentSong?.id == song.id && _isPlaying 
+                                    ? Icons.pause 
+                                    : Icons.play_arrow,
+                                color: themeService.primaryColor,
                               ),
+                              onPressed: () => _togglePlayPause(song),
                             ),
-                            onTap: () => _playSong(song),
+                            onTap: () async {
+                              await _playSong(song);
+                              if (mounted) {
+                                setState(() {});
+                              }
+                            },
                           ),
                         );
                       },

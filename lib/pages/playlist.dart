@@ -5,6 +5,7 @@ import '../services/audio_handler.dart';
 import '../models/song.dart';
 import '../theme/app_theme.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 
 class PlaylistPage extends StatelessWidget {
   const PlaylistPage({super.key});
@@ -12,6 +13,8 @@ class PlaylistPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final svc = Provider.of<AudioHandlerService>(context);
+    
+    debugPrint('构建播放列表页面');
 
     return Scaffold(
       appBar: AppBar(
@@ -33,9 +36,12 @@ class PlaylistPage extends StatelessWidget {
       body: StreamBuilder<List<MediaItem>>(
         stream: svc.queueStream,
         builder: (context, snap) {
+          debugPrint('播放列表StreamBuilder构建，数据是否存在: ${snap.hasData}');
           final list = snap.data ?? <MediaItem>[];
+          debugPrint('播放列表当前长度: ${list.length}');
           
           if (list.isEmpty) {
+            debugPrint('播放列表为空，显示空状态');
             return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -58,6 +64,7 @@ class PlaylistPage extends StatelessWidget {
             );
           }
 
+          debugPrint('播放列表有内容，显示列表');
           return ReorderableListView(
             padding: const EdgeInsets.only(top: 20),
             onReorder: (oldIndex, newIndex) async {
@@ -121,6 +128,7 @@ class PlaylistPage extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     onTap: () async {
+                      debugPrint('点击播放列表项，索引: $i');
                       await svc.skipToQueueItem(i);
                     },
                   ),

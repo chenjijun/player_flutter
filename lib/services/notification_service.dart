@@ -10,7 +10,12 @@ class NotificationService {
   static Future<void> init() async {
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const ios = DarwinInitializationSettings();
-    const initSettings = InitializationSettings(android: android, iOS: ios);
+    const macOS = DarwinInitializationSettings();
+    const initSettings = InitializationSettings(
+      android: android, 
+      iOS: ios,
+      macOS: macOS,
+    );
 
     await _notifications.initialize(
       initSettings,
