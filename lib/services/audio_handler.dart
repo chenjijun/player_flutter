@@ -128,7 +128,7 @@ class AudioHandlerService with ChangeNotifier {
         title: song.title,
         artist: song.artist ?? '未知艺术家',
         album: song.album ?? '未知专辑',
-        duration: Duration(milliseconds: song.duration ?? 0),
+        duration: Duration(seconds: song.duration),
         artUri: song.coverUrl != null ? Uri.tryParse(song.coverUrl!) : null,
       );
       

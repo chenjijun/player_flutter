@@ -173,25 +173,22 @@ class _NavidromePlaylistDetailPageState extends State<NavidromePlaylistDetailPag
                         final songs = await widget.navidromeService.getPlaylistSongs(widget.playlistId);
                       
                         if (songs.isNotEmpty) {
-                          for (int i = 0; i < songs.length; i++) {
-                            final song = songs[i];
-                            if (i == 0) {
-                              await audioHandler.playSong(song);
-                            } else {
-                              final mediaItem = MediaItem(
+                          // 先清空当前队列，再批量添加歌单所有歌曲
+                          await audioHandler.clearQueue();
+                          final mediaItems = songs.map((song) => MediaItem(
                                 id: song.url,
                                 album: song.album ?? '',
                                 title: song.title,
                                 artist: song.artist,
                                 duration: Duration(seconds: song.duration),
-                                artUri: (song.coverUrl != null && song.coverUrl!.isNotEmpty) 
-                                    ? Uri.parse(song.coverUrl!) 
+                                artUri: (song.coverUrl != null && song.coverUrl!.isNotEmpty)
+                                    ? Uri.parse(song.coverUrl!)
                                     : null,
-                              );
-                              await audioHandler.addQueueItem(mediaItem);
-
-                            }
-                          }
+                              ))
+                              .toList();
+                          await audioHandler.addQueueItems(mediaItems);
+                          await audioHandler.skipToQueueItem(0);
+                          await audioHandler.play();
                           
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
